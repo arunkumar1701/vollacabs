@@ -1,0 +1,14 @@
+table:
+  name: app_events
+  schema: public
+event_triggers:
+  - name: workflow_db_event
+    definition:
+      enable_manual: false
+      insert:
+        columns: '*'
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://host.docker.internal:3000/api/dbEventTrigger

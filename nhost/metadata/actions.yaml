@@ -1,0 +1,22 @@
+actions:
+  - name: triggerWorkflowRun
+    definition:
+      kind: synchronous
+      handler: "http://host.docker.internal:3000/api/triggerWorkflowRun"
+      forward_client_headers: true
+    permissions:
+      - role: user
+  - name: approveStep
+    definition:
+      kind: synchronous
+      handler: "http://host.docker.internal:3000/api/approveStep"
+      forward_client_headers: true
+    permissions:
+      - role: user
+custom_types:
+  enums: []
+  input_objects: []
+  objects:
+    - name: TriggerWorkflowRunOutput
+    - name: ApproveStepOutput
+  scalars: []

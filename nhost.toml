@@ -1,0 +1,5 @@
+[hasura]
+version = "v2.33.2"
+
+[postgres]
+version = "14.6"

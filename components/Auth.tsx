@@ -1,0 +1,82 @@
+'use client';
+import { useAuthenticationStatus, useUserData, useSignInEmailPassword, useSignOut, useSignUpEmailPassword } from '@nhost/react';
+import { useState, useEffect } from 'react';
+
+export function Auth({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuthenticationStatus();
+  const user = useUserData();
+  const { signInEmailPassword } = useSignInEmailPassword();
+  const { signUpEmailPassword } = useSignUpEmailPassword();
+  const { signOut } = useSignOut();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  if (!mounted || isLoading) {
+    return <div className="flex h-screen items-center justify-center bg-[#0a0a0c] text-white">Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#0a0a0c] text-white">
+        <form 
+          className="flex flex-col gap-4 p-8 bg-slate-900 rounded border border-slate-800"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setError('');
+            let res;
+            if (isSignUp) {
+              res = await signUpEmailPassword(email, password);
+            } else {
+              res = await signInEmailPassword(email, password);
+            }
+            if (res.error) {
+              setError(res.error.message);
+            }
+          }}
+        >
+          <h2 className="text-xl font-bold">{isSignUp ? 'Sign Up' : 'Sign In'}</h2>
+          {error && <div className="text-red-500 text-sm">{error}</div>}
+          <input 
+            type="email" 
+            placeholder="Email" 
+            className="px-3 py-2 bg-slate-800 border border-slate-700 rounded text-white"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+          />
+          <input 
+            type="password" 
+            placeholder="Password" 
+            className="px-3 py-2 bg-slate-800 border border-slate-700 rounded text-white"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+          />
+          <button type="submit" className="px-3 py-2 bg-indigo-600 text-white rounded">
+            {isSignUp ? 'Sign Up' : 'Sign In'}
+          </button>
+          <button type="button" className="text-sm text-slate-400" onClick={() => setIsSignUp(!isSignUp)}>
+            {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-4 bg-slate-900 p-2 rounded border border-slate-800">
+        <div className="text-xs text-white">User ID: {user?.id}</div>
+        <button className="px-3 py-1 bg-red-600 text-white text-xs rounded" onClick={() => signOut()}>Sign Out</button>
+      </div>
+      {children}
+    </>
+  );
+}
