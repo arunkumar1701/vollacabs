@@ -85,7 +85,7 @@ export async function executeTriggerRun(workflowId: string, orgId: string) {
 
   // 4. Atomic quota increment on completion
   if (executionResult.status === 'completed') {
-    await hasuraRequestAdmin(`
+    const incRes = await hasuraRequestAdmin(`
       mutation IncrementQuotaOnCompletion($orgId: uuid!, $limit: Int!) {
         update_organizations(
           where: { id: { _eq: $orgId }, quota_used: { _lt: $limit } },
@@ -95,6 +95,12 @@ export async function executeTriggerRun(workflowId: string, orgId: string) {
         }
       }
     `, { orgId, limit: quota.quota_limit });
+    
+    // Phase 5C: Handle edge case where concurrent runs exceed limit at the exact time of completion
+    if (incRes.update_organizations?.affected_rows === 0) {
+      console.warn(`[Quota System] Quota for org ${orgId} was consumed concurrently. The workflow ${workflowId} completed successfully, but quota_used was not incremented to prevent exceeding quota_limit. Record clamped to max.`);
+      executionResult.message += " (Note: Quota exhausted concurrently, limit enforced)";
+    }
   }
 
   return { workflowRunId, ...executionResult };

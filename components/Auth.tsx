@@ -39,6 +39,14 @@ export function Auth({ children }: { children: React.ReactNode }) {
               res = await signInEmailPassword(email, password);
             }
             if (res.error) {
+              if (res.error.message?.toLowerCase().includes('already signed in')) {
+                // State is corrupt. Force a signout to clear local storage, then reload
+                localStorage.removeItem('nhostRefreshToken');
+                localStorage.clear();
+                try { await signOut(); } catch (e) {}
+                window.location.reload();
+                return;
+              }
               setError(res.error.message);
             }
           }}

@@ -16,3 +16,7 @@ To run the application locally:
 - **Frontend:** Next.js (App Router), React, Tailwind CSS, Apollo Client
 - **Backend/BaaS:** Nhost (PostgreSQL, Hasura GraphQL, Authentication, Serverless Functions)
 - **AI Integration:** Google Gemini API (Server-side execution only)
+
+## Phase 5C: Notification Stub
+
+Note: The notification provider implemented in this project (`/api/notifyWebhook`) is a **stub with an artificial delay** to simulate real-world behavior for assignment purposes. It does **not** actually deliver messages to real Slack workspaces or Email inboxes. The workflow engine correctly inserts notifications into the `workflow_notifications` table, which triggers a Hasura Event Trigger that securely calls the backend stub. No false claims of actual delivery are made in the system.

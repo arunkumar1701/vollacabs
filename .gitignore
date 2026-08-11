@@ -5,3 +5,6 @@ coverage/
 *.log
 .env*
 !.env.example
+.nhost/
+.secrets/
+nhost/nhost.toml

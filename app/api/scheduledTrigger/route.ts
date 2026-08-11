@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeTriggerRun, hasuraRequestAdmin } from '../../../lib/trigger-helper';
+const cronParser = require('cron-parser');
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,15 +25,31 @@ export async function POST(req: NextRequest) {
     const results = [];
 
     // 2. Execute each
-    // In a real production system, you would check `config.cron` against the current time
-    // and check `last_run_at` to avoid duplicate runs.
+    const now = new Date();
     for (const trigger of triggers) {
       if (!trigger.workflow) continue;
       
+      const cronExpression = trigger.config?.cron;
+      if (!cronExpression) continue; // Skip if no cron expression
+
+      try {
+        const interval = cronParser.parseExpression(cronExpression, { currentDate: now, tz: 'UTC' });
+        const prev = interval.prev().toDate();
+        // Check if the cron expression was supposed to fire in the last minute (since this runs every minute)
+        const diffMs = now.getTime() - prev.getTime();
+        if (diffMs > 60000 || diffMs < 0) {
+          console.log(`[ScheduledTrigger] Skipping trigger ${trigger.id}, schedule ${cronExpression} does not match current time.`);
+          continue; // Does not match current minute
+        }
+      } catch (err: any) {
+        console.error(`[ScheduledTrigger] Invalid cron expression for trigger ${trigger.id}:`, err.message);
+        continue;
+      }
+
       const orgId = trigger.workflow.org_id;
       const workflowId = trigger.workflow.id;
       
-      console.log(`[ScheduledTrigger] Executing workflow ${workflowId} for trigger ${trigger.id}`);
+      console.log(`[ScheduledTrigger] Executing workflow ${workflowId} for trigger ${trigger.id} (matched cron ${cronExpression})`);
       
       try {
         const result = await executeTriggerRun(workflowId, orgId);

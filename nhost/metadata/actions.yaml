@@ -13,10 +13,18 @@ actions:
       forward_client_headers: true
     permissions:
       - role: user
+  - name: triggerWebhook
+    definition:
+      kind: synchronous
+      handler: "http://host.docker.internal:3000/api/webhookAction"
+      forward_client_headers: true
+    permissions:
+      - role: public
 custom_types:
   enums: []
   input_objects: []
   objects:
     - name: TriggerWorkflowRunOutput
     - name: ApproveStepOutput
+    - name: TriggerWebhookOutput
   scalars: []

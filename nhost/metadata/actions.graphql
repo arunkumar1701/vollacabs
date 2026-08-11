@@ -1,6 +1,7 @@
 type Mutation {
   triggerWorkflowRun(workflow_id: uuid!): TriggerWorkflowRunOutput
   approveStep(step_run_id: uuid!): ApproveStepOutput
+  triggerWebhook(trigger_id: uuid!): TriggerWebhookOutput
 }
 
 type TriggerWorkflowRunOutput {
@@ -12,6 +13,12 @@ type TriggerWorkflowRunOutput {
 type ApproveStepOutput {
   step_run_id: uuid!
   workflow_run_id: uuid!
+  status: String!
+  message: String!
+}
+
+type TriggerWebhookOutput {
+  workflow_run_id: uuid
   status: String!
   message: String!
 }
