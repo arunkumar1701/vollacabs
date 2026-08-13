@@ -1,24 +1,50 @@
 import { executeWorkflow } from './workflow-engine';
+import fs from 'fs';
+import path from 'path';
 
 export function getGraphQLUrl() {
-  const url = process.env.NHOST_GRAPHQL_URL;
-  if (!url) throw new Error("NHOST_GRAPHQL_URL is not configured");
-  return url;
+  return process.env.NHOST_GRAPHQL_URL || 'https://aszwclgvuyolkytnqscm.graphql.ap-south-1.nhost.run/v1';
 }
 
-export function getAdminSecret() {
-  const secret = process.env.NHOST_ADMIN_SECRET;
-  if (!secret) throw new Error("NHOST_ADMIN_SECRET is not configured");
+export function getAdminSecret(): string | null {
+  let secret = process.env.NHOST_ADMIN_SECRET;
+  
+  if (!secret || secret.includes('{{') || secret.startsWith('${') || secret.includes('secrets.')) {
+    try {
+      const envPath = path.join(process.cwd(), '.env.local');
+      if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        const match = envContent.match(/NHOST_ADMIN_SECRET\s*=\s*["']?([^"'\n]+)["']?/);
+        if (match && match[1]) {
+          secret = match[1].trim();
+        }
+      }
+    } catch (err) {
+      console.warn(`[getAdminSecret] Failed to read .env.local:`, err);
+    }
+  }
+
+  if (!secret || secret.includes('{{') || secret.startsWith('${') || secret.includes('secrets.')) {
+    return null;
+  }
   return secret;
 }
 
-export async function hasuraRequestAdmin(query: string, variables: any = {}) {
+export async function hasuraRequestAdmin(query: string, variables: any = {}, authToken?: string) {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const adminSecret = getAdminSecret();
+  if (adminSecret) {
+    headers['x-hasura-admin-secret'] = adminSecret;
+  } else if (authToken) {
+    headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+  }
+
   const res = await fetch(getGraphQLUrl(), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-hasura-admin-secret': getAdminSecret(),
-    },
+    headers,
     body: JSON.stringify({ query, variables }),
   });
   const json = await res.json();
@@ -66,19 +92,28 @@ export async function executeTriggerRun(workflowId: string, orgId: string) {
   }
 
   // 2. Create workflow_run
-  const runData = await hasuraRequestAdmin(`
-    mutation CreateWorkflowRun($workflowId: uuid!) {
-      insert_workflow_runs_one(object: {
-        workflow_id: $workflowId,
-        status: "running",
-        started_at: "now()"
-      }) {
-        id
+  let workflowRunId: string;
+  try {
+    const runData = await hasuraRequestAdmin(`
+      mutation CreateWorkflowRun($workflowId: uuid!) {
+        insert_workflow_runs_one(object: {
+          workflow_id: $workflowId,
+          status: "running",
+          started_at: "now()"
+        }) {
+          id
+        }
       }
+    `, { workflowId });
+    workflowRunId = runData?.insert_workflow_runs_one?.id;
+    if (!workflowRunId) {
+      throw new Error("Failed to insert workflow run in database");
     }
-  `, { workflowId });
-  const workflowRunId = runData.insert_workflow_runs_one.id;
-  console.log(`[TriggerHelper] Created workflow_run ${workflowRunId} for workflow ${workflowId}`);
+  } catch (err: any) {
+    console.error(`[TriggerHelper] Create workflow_run failed: ${err.message}`);
+    throw err;
+  }
+  console.log(`[TriggerHelper] Using workflow_run ${workflowRunId} for workflow ${workflowId}`);
 
   // 3. Execute workflow synchronously
   const executionResult = await executeWorkflow(workflowId, workflowRunId);

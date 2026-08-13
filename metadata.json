@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Workflow Automation Platform",
+  "description": "A full-stack workflow automation and orchestration engine with step execution history, triggers, outputs, and notifications.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

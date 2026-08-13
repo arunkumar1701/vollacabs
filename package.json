@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev -p 3000 -H 0.0.0.0",
+    "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "eslint .",
     "clean": "next clean"
@@ -14,7 +14,6 @@
     "@google/genai": "^2.4.0",
     "@hookform/resolvers": "^5.2.1",
     "@nhost/apollo": "^9.0.1",
-    "@nhost/nextjs": "^2.3.1",
     "@nhost/react": "^3.11.2",
     "@nhost/react-apollo": "^18.0.2",
     "autoprefixer": "^10.4.21",

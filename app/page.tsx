@@ -1,5 +1,8 @@
-import { WorkflowApp } from '../components/WorkflowApp';
+'use client';
+
+import { WorkflowApp } from '@/components/WorkflowApp';
 
 export default function Page() {
   return <WorkflowApp />;
 }
+

@@ -27,6 +27,8 @@ export const GET_WORKFLOWS = gql`
       workflow_steps(order_by: { position: asc }) {
         id
         type
+        step_type
+        name
         position
         config
       }

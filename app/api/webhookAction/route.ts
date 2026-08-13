@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       query GetTrigger($triggerId: uuid!) {
         workflow_triggers_by_pk(id: $triggerId) {
           id
+          trigger_type
           type
           enabled
           config
@@ -38,8 +39,8 @@ export async function POST(req: NextRequest) {
     }
     
     // Validate type
-    if (trigger.type !== 'webhook') {
-      return NextResponse.json({ message: "Invalid trigger type" }, { status: 400 });
+    if (trigger.trigger_type !== 'webhook') {
+      return NextResponse.json({ message: "Invalid trigger.trigger_type" }, { status: 400 });
     }
     
     // Validate enabled

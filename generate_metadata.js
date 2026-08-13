@@ -3,9 +3,20 @@ const yaml = require('js-yaml');
 
 const dir = './nhost/metadata/databases/default/tables/';
 
+const tableColumns = {
+  organizations: ['id', 'name', 'quota_limit', 'quota_used', 'quota_period_start', 'created_at'],
+  org_members: ['id', 'org_id', 'user_id', 'role', 'created_at'],
+  workflows: ['id', 'org_id', 'name', 'description', 'status', 'created_at', 'updated_at'],
+  workflow_steps: ['id', 'workflow_id', 'name', 'position', 'type', 'config', 'created_at', 'updated_at'],
+  workflow_triggers: ['id', 'workflow_id', 'type', 'config', 'enabled', 'created_at'],
+  workflow_runs: ['id', 'workflow_id', 'status', 'input', 'output', 'error', 'started_at', 'completed_at', 'created_at'],
+  step_runs: ['id', 'workflow_run_id', 'workflow_step_id', 'status', 'input', 'output', 'error', 'attempt_count', 'approved_by', 'approved_at', 'started_at', 'completed_at', 'created_at']
+};
+
 function updateTable(tableName, config) {
   const file = `${dir}public_${tableName}.yaml`;
   let doc = yaml.load(fs.readFileSync(file, 'utf8'));
+  const cols = tableColumns[tableName] || '*';
   
   if (config.object_relationships) {
     doc.object_relationships = doc.object_relationships || [];
@@ -29,7 +40,7 @@ function updateTable(tableName, config) {
       role: 'user',
       permission: {
         check: config.insert_filter,
-        columns: '*',
+        columns: cols,
         set: config.insert_set || {}
       }
     }];
@@ -39,7 +50,7 @@ function updateTable(tableName, config) {
     doc.update_permissions = [{
       role: 'user',
       permission: {
-        columns: '*',
+        columns: cols,
         filter: config.update_filter,
         check: config.update_filter
       }
@@ -61,13 +72,14 @@ function updateTable(tableName, config) {
 // organizations
 updateTable('organizations', {
   select_filter: { org_members: { user_id: { _eq: "X-Hasura-User-Id" } } },
+  insert_filter: {},
   update_filter: { org_members: { _and: [ { user_id: { _eq: "X-Hasura-User-Id" } }, { role: { _eq: "owner" } } ] } }
 });
 
 // org_members
 updateTable('org_members', {
   select_filter: { organization: { org_members: { user_id: { _eq: "X-Hasura-User-Id" } } } },
-  insert_filter: { organization: { org_members: { _and: [ { user_id: { _eq: "X-Hasura-User-Id" } }, { role: { _eq: "owner" } } ] } } },
+  insert_filter: { _or: [ { user_id: { _eq: "X-Hasura-User-Id" } }, { organization: { org_members: { _and: [ { user_id: { _eq: "X-Hasura-User-Id" } }, { role: { _eq: "owner" } } ] } } } ] },
   update_filter: { organization: { org_members: { _and: [ { user_id: { _eq: "X-Hasura-User-Id" } }, { role: { _eq: "owner" } } ] } } },
   delete_filter: { organization: { org_members: { _and: [ { user_id: { _eq: "X-Hasura-User-Id" } }, { role: { _eq: "owner" } } ] } } }
 });

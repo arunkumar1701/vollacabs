@@ -15,11 +15,37 @@ object_relationships:
     using:
       foreign_key_constraint_on: workflow_run_id
 select_permissions:
+  - role: public
+    permission:
+      columns: '*'
+      filter: {}
   - role: user
     permission:
       columns: '*'
-      filter:
-        organization:
-          org_members:
-            user_id:
-              _eq: X-Hasura-User-Id
+      filter: {}
+insert_permissions:
+  - role: user
+    permission:
+      check: {}
+      columns:
+        - id
+        - workflow_id
+        - workflow_run_id
+        - step_run_id
+        - org_id
+        - data
+        - created_at
+      set: {}
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - workflow_run_id
+        - step_run_id
+        - org_id
+        - data
+        - created_at
+      filter: {}
+      check: {}

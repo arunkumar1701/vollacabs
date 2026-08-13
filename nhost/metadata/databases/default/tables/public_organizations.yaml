@@ -24,15 +24,27 @@ select_permissions:
         org_members:
           user_id:
             _eq: X-Hasura-User-Id
+insert_permissions:
+  - role: user
+    permission:
+      check: {}
+      columns: &ref_0
+        - id
+        - name
+        - quota_limit
+        - quota_used
+        - quota_period_start
+        - created_at
+      set: {}
 update_permissions:
   - role: user
     permission:
-      columns: '*'
-      filter: &ref_0
+      columns: *ref_0
+      filter: &ref_1
         org_members:
           _and:
             - user_id:
                 _eq: X-Hasura-User-Id
             - role:
                 _eq: owner
-      check: *ref_0
+      check: *ref_1

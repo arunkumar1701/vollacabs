@@ -31,9 +31,10 @@ export const DELETE_WORKFLOW = gql`
 
 export const INSERT_WORKFLOW_STEP = gql`
   mutation InsertWorkflowStep($workflowId: uuid!, $type: String!, $position: Int!, $config: jsonb!, $name: String!) {
-    insert_workflow_steps_one(object: { workflow_id: $workflowId, type: $type, position: $position, config: $config, name: $name }) {
+    insert_workflow_steps_one(object: { workflow_id: $workflowId, type: $type, step_type: $type, position: $position, config: $config, name: $name }) {
       id
       type
+      step_type
       position
       config
       name
@@ -61,9 +62,10 @@ export const DELETE_WORKFLOW_STEP = gql`
 
 export const INSERT_WORKFLOW_TRIGGER = gql`
   mutation InsertWorkflowTrigger($workflowId: uuid!, $type: String!, $config: jsonb!) {
-    insert_workflow_triggers_one(object: { workflow_id: $workflowId, type: $type, config: $config }) {
+    insert_workflow_triggers_one(object: { workflow_id: $workflowId, type: $type, trigger_type: $type, config: $config }) {
       id
       type
+      trigger_type
       config
       enabled
     }

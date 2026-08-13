@@ -23,3 +23,47 @@ select_permissions:
             org_members:
               user_id:
                 _eq: X-Hasura-User-Id
+insert_permissions:
+  - role: user
+    permission:
+      check: {}
+      columns:
+        - id
+        - workflow_id
+        - status
+        - input
+        - output
+        - error
+        - started_at
+        - completed_at
+        - created_at
+      set: {}
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - status
+        - input
+        - output
+        - error
+        - started_at
+        - completed_at
+        - created_at
+      filter:
+        workflow:
+          organization:
+            org_members:
+              user_id:
+                _eq: X-Hasura-User-Id
+      check: {}
+delete_permissions:
+  - role: user
+    permission:
+      filter:
+        workflow:
+          organization:
+            org_members:
+              user_id:
+                _eq: X-Hasura-User-Id

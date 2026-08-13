@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeTriggerRun, hasuraRequestAdmin } from '../../../lib/trigger-helper';
-const cronParser = require('cron-parser');
+import { CronExpressionParser } from 'cron-parser';
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       if (!cronExpression) continue; // Skip if no cron expression
 
       try {
-        const interval = cronParser.parseExpression(cronExpression, { currentDate: now, tz: 'UTC' });
+        const interval = CronExpressionParser.parse(cronExpression, { currentDate: now, tz: 'UTC' });
         const prev = interval.prev().toDate();
         // Check if the cron expression was supposed to fire in the last minute (since this runs every minute)
         const diffMs = now.getTime() - prev.getTime();

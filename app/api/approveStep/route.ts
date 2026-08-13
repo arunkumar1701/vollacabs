@@ -1,25 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeWorkflow } from '../../../lib/workflow-engine';
+import { getAdminSecret } from '../../../lib/trigger-helper';
 
 function getGraphQLUrl() {
-  const url = process.env.NHOST_GRAPHQL_URL;
-  if (!url) throw new Error("NHOST_GRAPHQL_URL is not configured");
-  return url;
+  return process.env.NHOST_GRAPHQL_URL || 'https://aszwclgvuyolkytnqscm.graphql.ap-south-1.nhost.run/v1';
 }
 
-function getAdminSecret() {
-  const secret = process.env.NHOST_ADMIN_SECRET;
-  if (!secret) throw new Error("NHOST_ADMIN_SECRET is not configured");
-  return secret;
-}
+async function hasuraRequest(query: string, variables: any = {}, authToken?: string) {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
 
-async function hasuraRequest(query: string, variables: any = {}) {
+  const adminSecret = getAdminSecret();
+  if (adminSecret) {
+    headers['x-hasura-admin-secret'] = adminSecret;
+  } else if (authToken) {
+    headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+  }
+
   const res = await fetch(getGraphQLUrl(), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-hasura-admin-secret': getAdminSecret(),
-    },
+    headers,
     body: JSON.stringify({ query, variables }),
   });
   const json = await res.json();
@@ -29,26 +30,44 @@ async function hasuraRequest(query: string, variables: any = {}) {
   return json.data;
 }
 
+function getUserIdFromAuthHeader(authHeader: string | null): string | null {
+  if (!authHeader) return null;
+  try {
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const payloadBase64 = token.split('.')[1];
+    if (!payloadBase64) return null;
+    const decoded = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
+    return decoded['https://hasura.io/jwt/claims']?.['x-hasura-user-id'] || decoded.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const authHeader = req.headers.get('authorization') || undefined;
     
-    // Hasura action payload
-    const { action, input, session_variables } = body;
-    
-    if (action?.name !== 'approveStep') {
+    // Support both Hasura Action payload and direct API calls
+    const { action } = body;
+    if (action && action.name !== 'approveStep') {
       return NextResponse.json({ message: "Invalid action" }, { status: 400 });
     }
 
-    const stepRunId = input.step_run_id;
-    const userId = session_variables?.['x-hasura-user-id'];
+    const stepRunId = body.input?.step_run_id || body.stepRunId || body.step_run_id;
+    let userId = body.session_variables?.['x-hasura-user-id'] || body.userId;
+    if (!userId && authHeader) {
+      userId = getUserIdFromAuthHeader(authHeader);
+    }
     
     if (!userId) {
       return NextResponse.json({ message: "Authentication required", status: "failed", step_run_id: "00000000-0000-0000-0000-000000000000", workflow_run_id: "00000000-0000-0000-0000-000000000000" }, { status: 401 });
     }
 
+    const reqGql = (q: string, v: any = {}) => hasuraRequest(q, v, authHeader);
+
     // 1. Fetch step_run details and relations
-    const srData = await hasuraRequest(`
+    const srData = await reqGql(`
       query GetStepRunDetails($id: uuid!) {
         step_runs_by_pk(id: $id) {
           id
@@ -81,7 +100,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Authorization Check (Cross-Org and Role Verification)
-    const memberData = await hasuraRequest(`
+    const memberData = await reqGql(`
       query GetOrgMember($orgId: uuid!, $userId: uuid!) {
         org_members(where: {org_id: {_eq: $orgId}, user_id: {_eq: $userId}}) {
           id
@@ -100,37 +119,47 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Atomic Approval
-    const approveData = await hasuraRequest(`
-      mutation ApproveStepAtomic($id: uuid!, $userId: uuid!) {
-        update_step_runs(
-          where: { id: { _eq: $id }, status: { _eq: "paused" } },
-          _set: { status: "completed", approved_by: $userId, approved_at: "now()" }
-        ) {
-          affected_rows
+    try {
+      const approveData = await reqGql(`
+        mutation ApproveStepAtomic($id: uuid!, $userId: uuid!) {
+          update_step_runs(
+            where: { id: { _eq: $id }, status: { _eq: "paused" } },
+            _set: { status: "completed", approved_by: $userId, approved_at: "now()" }
+          ) {
+            affected_rows
+          }
         }
-      }
-    `, { id: stepRunId, userId });
+      `, { id: stepRunId, userId });
 
-    if (approveData.update_step_runs.affected_rows === 0) {
-      return NextResponse.json({ message: "Approval rejected: step is no longer paused.", status: "failed", step_run_id: stepRunId, workflow_run_id: workflowRunId }, { status: 409 });
+      if (approveData?.update_step_runs?.affected_rows === 0) {
+        return NextResponse.json({ message: "Approval rejected: step is no longer paused.", status: "failed", step_run_id: stepRunId, workflow_run_id: workflowRunId }, { status: 409 });
+      }
+    } catch (err: any) {
+      console.error(`[approveStep] update_step_runs failed: ${err.message}`);
+      throw err;
     }
 
     // 5. Update workflow run to running
-    await hasuraRequest(`
-      mutation ResumeWorkflowRun($id: uuid!) {
-        update_workflow_runs_by_pk(pk_columns: { id: $id }, _set: { status: "running" }) {
-          id
+    try {
+      await reqGql(`
+        mutation ResumeWorkflowRun($id: uuid!) {
+          update_workflow_runs_by_pk(pk_columns: { id: $id }, _set: { status: "running" }) {
+            id
+          }
         }
-      }
-    `, { id: workflowRunId });
+      `, { id: workflowRunId });
+    } catch (err: any) {
+      console.error(`[approveStep] update_workflow_runs_by_pk failed: ${err.message}`);
+      throw err;
+    }
 
     // 6. Resume workflow execution
     console.log(`[Workflow Engine] Resuming workflow_run ${workflowRunId}`);
-    const executionResult = await executeWorkflow(workflowId, workflowRunId);
+    const executionResult = await executeWorkflow(workflowId, workflowRunId, authHeader);
 
     // 7. Atomic quota increment on completion ONLY if workflow finished successfully
     if (executionResult.status === 'completed') {
-      const quotaData = await hasuraRequest(`
+      const quotaData = await reqGql(`
         query GetQuota($orgId: uuid!) {
           organizations_by_pk(id: $orgId) {
             quota_limit
@@ -139,7 +168,7 @@ export async function POST(req: NextRequest) {
       `, { orgId });
       const limit = quotaData?.organizations_by_pk?.quota_limit;
       if (limit !== undefined) {
-        await hasuraRequest(`
+        await reqGql(`
           mutation IncrementQuotaOnCompletion($orgId: uuid!, $limit: Int!) {
             update_organizations(
               where: { id: { _eq: $orgId }, quota_used: { _lt: $limit } },

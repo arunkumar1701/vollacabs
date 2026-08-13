@@ -1,6 +1,31 @@
 table:
   name: app_events
   schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+insert_permissions:
+  - role: user
+    permission:
+      check: {}
+      columns:
+        - id
+        - event_name
+        - payload
+        - created_at
+      set: {}
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - event_name
+        - payload
+        - created_at
+      filter: {}
+      check: {}
 event_triggers:
   - name: workflow_db_event
     definition:

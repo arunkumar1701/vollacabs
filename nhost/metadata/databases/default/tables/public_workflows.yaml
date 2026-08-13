@@ -45,26 +45,33 @@ insert_permissions:
             _and:
               - user_id:
                   _eq: X-Hasura-User-Id
-              - &ref_0
+              - &ref_1
                 _or:
                   - role:
                       _eq: owner
                   - role:
                       _eq: editor
-      columns: '*'
+      columns: &ref_0
+        - id
+        - org_id
+        - name
+        - description
+        - status
+        - created_at
+        - updated_at
       set: {}
 update_permissions:
   - role: user
     permission:
-      columns: '*'
-      filter: &ref_1
+      columns: *ref_0
+      filter: &ref_2
         organization:
           org_members:
             _and:
               - user_id:
                   _eq: X-Hasura-User-Id
-              - *ref_0
-      check: *ref_1
+              - *ref_1
+      check: *ref_2
 delete_permissions:
   - role: user
     permission:
@@ -74,4 +81,4 @@ delete_permissions:
             _and:
               - user_id:
                   _eq: X-Hasura-User-Id
-              - *ref_0
+              - *ref_1

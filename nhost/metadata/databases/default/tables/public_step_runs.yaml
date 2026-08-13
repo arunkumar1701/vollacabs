@@ -12,10 +12,46 @@ select_permissions:
   - role: user
     permission:
       columns: '*'
-      filter:
-        workflow_run:
-          workflow:
-            organization:
-              org_members:
-                user_id:
-                  _eq: X-Hasura-User-Id
+      filter: {}
+insert_permissions:
+  - role: user
+    permission:
+      check: {}
+      columns:
+        - id
+        - workflow_run_id
+        - workflow_step_id
+        - status
+        - input
+        - output
+        - error
+        - attempt_count
+        - approved_by
+        - approved_at
+        - started_at
+        - completed_at
+        - created_at
+      set: {}
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - workflow_run_id
+        - workflow_step_id
+        - status
+        - input
+        - output
+        - error
+        - attempt_count
+        - approved_by
+        - approved_at
+        - started_at
+        - completed_at
+        - created_at
+      filter: {}
+      check: {}
+delete_permissions:
+  - role: user
+    permission:
+      filter: {}

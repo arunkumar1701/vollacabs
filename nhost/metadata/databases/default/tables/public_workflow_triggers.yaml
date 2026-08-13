@@ -18,36 +18,40 @@ select_permissions:
 insert_permissions:
   - role: user
     permission:
-      check: &ref_0
-        _or:
-          - workflow:
-              organization:
-                org_members:
-                  _and:
-                    - user_id:
-                        _eq: X-Hasura-User-Id
+      check:
+        workflow:
+          organization:
+            org_members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - &ref_1
+                  _or:
                     - role:
                         _eq: owner
-          - _and:
-              - workflow:
-                  organization:
-                    org_members:
-                      _and:
-                        - user_id:
-                            _eq: X-Hasura-User-Id
-                        - role:
-                            _eq: editor
-              - _not:
-                  type:
-                    _eq: webhook
-      columns: '*'
+                    - role:
+                        _eq: editor
+      columns: &ref_0
+        - id
+        - workflow_id
+        - type
+        - config
+        - enabled
+        - created_at
       set: {}
 update_permissions:
   - role: user
     permission:
-      columns: '*'
-      filter: *ref_0
-      check: *ref_0
+      columns: *ref_0
+      filter: &ref_2
+        workflow:
+          organization:
+            org_members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - *ref_1
+      check: *ref_2
 delete_permissions:
   - role: user
     permission:
@@ -58,8 +62,4 @@ delete_permissions:
               _and:
                 - user_id:
                     _eq: X-Hasura-User-Id
-                - _or:
-                    - role:
-                        _eq: owner
-                    - role:
-                        _eq: editor
+                - *ref_1
